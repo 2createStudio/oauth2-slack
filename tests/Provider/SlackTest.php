@@ -2,17 +2,23 @@
 
 namespace Bramdevries\Oauth\Client\Provider;
 
+use GuzzleHttp\ClientInterface;
 use League\OAuth2\Client\Token\AccessToken;
 use Mockery as m;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 
-class SlackTest extends \PHPUnit_Framework_TestCase
+/**
+ * @backupStaticAttributes enabled
+ */
+class SlackTest extends TestCase
 {
     /**
      * @var Slack
      */
     protected $provider;
 
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->provider = new Slack([
             'clientId' => 'foo',
@@ -40,7 +46,7 @@ class SlackTest extends \PHPUnit_Framework_TestCase
     {
         $options = ['scope' => [uniqid(), uniqid()]];
         $url = $this->provider->getAuthorizationUrl($options);
-        $this->assertContains(urlencode(implode(',', $options['scope'])), $url);
+        $this->assertStringContainsString(urlencode(implode(',', $options['scope'])), $url);
     }
 
     public function testGetAuthorizationUrl()
@@ -60,13 +66,13 @@ class SlackTest extends \PHPUnit_Framework_TestCase
 
     public function testGetAccessToken()
     {
-        $response = m::mock('Psr\Http\Message\ResponseInterface');
+        $response = m::mock(ResponseInterface::class);
 
         $response->shouldReceive('getBody')->andReturn('{"ok":"true", "scope":"identify,read,post", "access_token": "mock_access_token"}');
         $response->shouldReceive('getHeader')->andReturn(['content-type' => 'json']);
         $response->shouldReceive('getStatusCode')->andReturn(200);
 
-        $client = m::mock('GuzzleHttp\ClientInterface');
+        $client = m::mock(ClientInterface::class);
         $client->shouldReceive('send')->times(1)->andReturn($response);
         $this->provider->setHttpClient($client);
 
@@ -79,17 +85,17 @@ class SlackTest extends \PHPUnit_Framework_TestCase
 
     public function testUserData()
     {
-        $response = m::mock('Psr\Http\Message\ResponseInterface');
+        $response = m::mock(ResponseInterface::class);
         $response->shouldReceive('getHeader')->andReturn(['content-type' => 'json']);
         $response->shouldReceive('getStatusCode')->andReturn(200);
 
         $response->shouldReceive('getBody')->andReturn('{"ok": true, "url": "https:\/\/myteam.slack.com\/", "team": "My Team", "user": "cal", "team_id": "T1234", "user_id": "U1234"}');
 
-        $client = m::mock('GuzzleHttp\ClientInterface');
+        $client = m::mock(ClientInterface::class);
         $client->shouldReceive('send')->andReturn($response);
 
         $this->provider->setHttpClient($client);
-        $token = m::mock('League\OAuth2\Client\Token\AccessToken');
+        $token = m::mock(AccessToken::class);
         $token->shouldReceive('getToken')->andReturn('foo');
 
         $user = $this->provider->getResourceOwner($token);
@@ -106,15 +112,15 @@ class SlackTest extends \PHPUnit_Framework_TestCase
 
     public function testCanThrowException()
     {
-        $this->setExpectedException('League\OAuth2\Client\Provider\Exception\IdentityProviderException', 'code_already_used');
+        $this->expectException(\League\OAuth2\Client\Provider\Exception\IdentityProviderException::class);
 
-        $response = m::mock('Psr\Http\Message\ResponseInterface');
+        $response = m::mock(ResponseInterface::class);
 
         $response->shouldReceive('getBody')->andReturn('{"ok":false, "error":"code_already_used"}');
         $response->shouldReceive('getHeader')->andReturn(['content-type' => 'json']);
         $response->shouldReceive('getStatusCode')->andReturn(200);
 
-        $client = m::mock('GuzzleHttp\ClientInterface');
+        $client = m::mock(ClientInterface::class);
         $client->shouldReceive('send')->times(1)->andReturn($response);
         $this->provider->setHttpClient($client);
 
